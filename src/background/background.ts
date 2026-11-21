@@ -80,39 +80,61 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   const message = raw as RuntimeMessage | undefined;
   if (message?.type !== 'open-editor-url' || !message.url) return false;
-  openEditorTab(message.url, sender.tab?.windowId);
+  void openEditorTab(message.url, sender.tab?.windowId).catch(() => {});
   sendResponse({ ok: true });
   return false;
 });
 
-function openEditorTab(url: string, windowId: number | undefined): void {
-  chrome.tabs.create({ url, windowId }, (tab) => {
-    if (!tab || tab.id === undefined) return;
-    const tabId = tab.id;
-    const listener = (changedTabId: number, info: { url?: string }) => {
-      if (changedTabId !== tabId || info.url === undefined) return;
-      if (info.url.startsWith('about:blank')) {
-        cleanup();
-        chrome.tabs.remove(tabId).catch(() => {});
-      }
-    };
-    const cleanup = () => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      chrome.tabs.onRemoved.removeListener(onRemoved);
-      window.clearTimeout(safety);
-    };
-    const onRemoved = (closedTabId: number) => {
-      if (closedTabId === tabId) cleanup();
-    };
-    const safety = window.setTimeout(() => {
-      cleanup();
-      chrome.tabs.get(tabId).then((current) => {
-        if (current.url === url || current.url?.startsWith('about:blank')) {
-          chrome.tabs.remove(tabId).catch(() => {});
-        }
-      }).catch(() => {});
-    }, 20000);
-    chrome.tabs.onUpdated.addListener(listener);
-    chrome.tabs.onRemoved.addListener(onRemoved);
-  });
+const EDITOR_TAB_ALARM_PREFIX = 'editor-tab-cleanup-';
+const EDITOR_TAB_SAFETY_WHEN_MS = 20000;
+
+function pendingEditorTabKey(tabId: number): string {
+  return `pendingEditorTab:${tabId}`;
+}
+
+function editorTabAlarmName(tabId: number): string {
+  return `${EDITOR_TAB_ALARM_PREFIX}${tabId}`;
+}
+
+async function openEditorTab(url: string, windowId: number | undefined): Promise<void> {
+  const tab = await chrome.tabs.create({ url, windowId });
+  if (!tab || tab.id === undefined) return;
+  const tabId = tab.id;
+  await chrome.storage.session.set({ [pendingEditorTabKey(tabId)]: { url } });
+  chrome.alarms.create(editorTabAlarmName(tabId), { when: Date.now() + EDITOR_TAB_SAFETY_WHEN_MS });
+}
+
+chrome.tabs.onUpdated.addListener((changedTabId, info) => {
+  if (info.url === undefined || !info.url.startsWith('about:blank')) return;
+  void closeEditorTabIfBlank(changedTabId);
+});
+
+chrome.tabs.onRemoved.addListener((closedTabId) => {
+  void forgetEditorTab(closedTabId);
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (!alarm.name.startsWith(EDITOR_TAB_ALARM_PREFIX)) return;
+  void closeEditorTabIfBlank(Number(alarm.name.slice(EDITOR_TAB_ALARM_PREFIX.length)));
+});
+
+async function closeEditorTabIfBlank(tabId: number): Promise<void> {
+  const key = pendingEditorTabKey(tabId);
+  const stored = await chrome.storage.session.get(key);
+  const pending = stored[key] as { url: string } | undefined;
+  if (!pending) return;
+  await chrome.storage.session.remove(key);
+  await chrome.alarms.clear(editorTabAlarmName(tabId));
+  const current = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (current?.url === pending.url || current?.url?.startsWith('about:blank')) {
+    chrome.tabs.remove(tabId).catch(() => {});
+  }
+}
+
+async function forgetEditorTab(tabId: number): Promise<void> {
+  const key = pendingEditorTabKey(tabId);
+  const stored = await chrome.storage.session.get(key);
+  if (!stored[key]) return;
+  await chrome.storage.session.remove(key);
+  await chrome.alarms.clear(editorTabAlarmName(tabId));
 }

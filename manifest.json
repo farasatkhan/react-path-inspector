@@ -10,9 +10,11 @@
         "128": "public/icons/icon128.png"
     },
     "permissions": [
+        "alarms",
         "contextMenus",
+        "scripting",
         "storage",
-        "scripting"
+        "tabs"
     ],
     "optional_host_permissions": [
         "http://*/*",
