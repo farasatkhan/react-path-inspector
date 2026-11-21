@@ -90,6 +90,20 @@ function anchorLaunch(url: string): void {
   window.setTimeout(() => anchor.remove(), 1000);
 }
 
+async function openViaDevServer(sourceInfo: { fileName: string; line: number; column: number }): Promise<boolean> {
+  const params = new URLSearchParams({
+    file: sourceInfo.fileName,
+    line1: String(sourceInfo.line),
+    column1: String(sourceInfo.column),
+  });
+  try {
+    const response = await fetch(`${location.origin}/__nextjs_launch-editor?${params}`);
+    return response.status === 204;
+  } catch {
+    return false;
+  }
+}
+
 async function handleInspectClick(mode: InspectMode, hasFiber: boolean, sourceInfo: { fileName: string; line: number; column: number } | null): Promise<void> {
   if (mode === 'select') {
     stopInspect();
@@ -107,6 +121,13 @@ async function handleInspectClick(mode: InspectMode, hasFiber: boolean, sourceIn
   const absolute = isAbsoluteSourcePath(sourceInfo.fileName);
   const root = resolveProjectRoot(origin, settings.projectRoots, settings.defaultProjectRoot);
   if (!absolute && !root) {
+    const openedViaServer = await openViaDevServer(sourceInfo);
+    if (openedViaServer) {
+      const openedAt = sourceInfo.line > 1 ? `:${sourceInfo.line}` : '';
+      showToast(`Opened ${sourceInfo.fileName}${openedAt} via the Next.js dev server`, 'success', resolvedTheme());
+      stopInspect();
+      return;
+    }
     showToast(`Set a project root for ${origin} in React Path Inspector options to open ${sourceInfo.fileName}`, 'error', resolvedTheme());
     return;
   }

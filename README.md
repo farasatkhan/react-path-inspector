@@ -68,7 +68,13 @@ opens the page or layout file at the line that renders it. On a production
 build there is no source info and a click explains that in a toast instead
 of opening the wrong file.
 
-Because dev servers report project-relative paths, the options page has a
+Client chunks carry absolute source paths in their source maps, so clicks
+on client-rendered components open in the editor without any setup. Server
+components resolve to project-relative paths, and on a Next.js dev server
+a click opens them through the dev server itself (`/__nextjs_launch-editor`),
+which knows where the project lives and which editor to launch. For setups
+where that endpoint is unavailable — other servers, or a preference for
+opening through the editor protocol directly — the options page has a
 project root setting: a default plus per-site overrides (matched with the
 port, e.g. `http://localhost:3002`). Windows paths are normalized to
 `vscode://file/D:/...` URLs automatically.
