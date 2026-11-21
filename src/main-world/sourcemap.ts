@@ -96,7 +96,7 @@ function findSourceMapUrl(bundleUrl: string, bundleText: string): string | null 
   }
 }
 
-function normalizeSourcePath(source: string, sourceRoot: string, mapUrl: string): string | null {
+function normalizeSourcePath(source: string, sourceRoot: string, mapUrl: string, bundleUrl: string): string | null {
   if (!source) return null;
   let candidate = source;
 
@@ -128,13 +128,18 @@ function normalizeSourcePath(source: string, sourceRoot: string, mapUrl: string)
     return candidate;
   }
 
-  try {
-    const resolved = new URL(candidate, mapUrl);
-    if (resolved.protocol === 'http:' || resolved.protocol === 'https:' || resolved.protocol === 'file:') {
-      return decodeURIComponent(resolved.pathname);
+  // Relative sources resolve against the map's location; inline maps travel
+  // in data:/blob: URLs, which are not valid bases, so fall back to the
+  // bundle itself (Vite emits bare filenames for its inline dev maps).
+  for (const base of [mapUrl, bundleUrl]) {
+    try {
+      const resolved = new URL(candidate, base);
+      if (resolved.protocol === 'http:' || resolved.protocol === 'https:' || resolved.protocol === 'file:') {
+        return decodeURIComponent(resolved.pathname);
+      }
+    } catch {
+      continue;
     }
-  } catch {
-    return null;
   }
   return candidate;
 }
@@ -142,6 +147,7 @@ function normalizeSourcePath(source: string, sourceRoot: string, mapUrl: string)
 function collectMappings(
   json: unknown,
   mapUrl: string,
+  bundleUrl: string,
   byLine: Map<number, Mapping[]>,
   lineOffset: number,
   columnOffset: number,
@@ -155,7 +161,7 @@ function collectMappings(
       const s = section as { offset?: { line?: unknown; column?: unknown }; map?: unknown };
       const line = typeof s.offset?.line === 'number' ? s.offset.line : 0;
       const column = typeof s.offset?.column === 'number' ? s.offset.column : 0;
-      collectMappings(s.map, mapUrl, byLine, lineOffset + line, columnOffset + column, depth + 1);
+      collectMappings(s.map, mapUrl, bundleUrl, byLine, lineOffset + line, columnOffset + column, depth + 1);
     }
     return;
   }
@@ -168,7 +174,7 @@ function collectMappings(
     (index) => {
       if (index < 0 || index >= sources.length) return null;
       const raw = sources[index];
-      return typeof raw === 'string' ? normalizeSourcePath(raw, sourceRoot, mapUrl) : null;
+      return typeof raw === 'string' ? normalizeSourcePath(raw, sourceRoot, mapUrl, bundleUrl) : null;
     },
     byLine,
     lineOffset,
@@ -176,9 +182,9 @@ function collectMappings(
   );
 }
 
-function parseSourceMap(json: unknown, mapUrl: string): SourceMapData | null {
+function parseSourceMap(json: unknown, mapUrl: string, bundleUrl: string): SourceMapData | null {
   const byLine = new Map<number, Mapping[]>();
-  collectMappings(json, mapUrl, byLine, 0, 0, 0);
+  collectMappings(json, mapUrl, bundleUrl, byLine, 0, 0, 0);
   if (byLine.size === 0) return null;
   return { mappings: byLine, mapUrl };
 }
@@ -194,7 +200,7 @@ async function loadEntry(bundleUrl: string, entry: MapEntry): Promise<void> {
     const mapResponse = await fetch(mapUrl, { credentials: 'omit' });
     if (!mapResponse.ok) return;
     const mapJson: unknown = await mapResponse.json();
-    entry.data = parseSourceMap(mapJson, mapUrl);
+    entry.data = parseSourceMap(mapJson, mapUrl, bundleUrl);
   } catch {
     entry.data = null;
   }
