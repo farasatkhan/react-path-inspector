@@ -53,6 +53,10 @@ export function serializeJsonSafe(
   const objectValue = value as object;
   if (seen.has(objectValue)) return '[Circular]';
 
+  // Thenable check first — see serializeValue: Next.js params proxies warn
+  // on any property access other than then/catch/finally.
+  if (isThenable(objectValue)) return 'Promise';
+
   if (isReactElement(objectValue)) return `<${reactElementName(objectValue)} />`;
   if (isDomNode(objectValue)) return domNodeSummary(objectValue);
   if (objectValue instanceof Date) {
@@ -61,7 +65,6 @@ export function serializeJsonSafe(
   if (objectValue instanceof Map || objectValue instanceof Set) {
     return serializeValue(objectValue, context, seen, depth);
   }
-  if (typeof (objectValue as { then?: unknown }).then === 'function') return 'Promise';
 
   if (Array.isArray(objectValue)) {
     seen.add(objectValue);
@@ -179,6 +182,11 @@ export function serializeValue(
   const objectValue = value as object;
   if (seen.has(objectValue)) return '[Circular]';
 
+  // Promises come first: Next.js wraps route params and searchParams in
+  // proxies that log a sync-dynamic-apis warning on ANY other property
+  // access, so nothing may touch them before the thenable check.
+  if (isThenable(objectValue)) return 'Promise';
+
   if (isReactElement(objectValue)) {
     return `<${reactElementName(objectValue)} />`;
   }
@@ -198,9 +206,14 @@ export function serializeValue(
 
   if (Array.isArray(objectValue)) return serializeArray(objectValue, context, seen, depth);
 
-  if (typeof (objectValue as { then?: unknown }).then === 'function') return 'Promise';
-
   return serializeObject(objectValue, context, seen, depth);
+}
+
+function isThenable(value: object): boolean {
+  return (
+    value instanceof Promise ||
+    typeof (value as { then?: unknown }).then === 'function'
+  );
 }
 
 function truncateString(text: string, maxChars: number): string {

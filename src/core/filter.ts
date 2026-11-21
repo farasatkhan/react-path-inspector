@@ -8,6 +8,8 @@ export const NEXT_INTERNAL_DENYLIST = [
   'HTTPAccessFallbackErrorBoundary',
   'DevRootHTTPAccessFallbackBoundary',
   'LoadingBoundary',
+  'LoadingBoundaryProvider',
+  'ClientPageRoot',
   'SegmentViewNode',
   'SegmentStateProvider',
   'RenderFromTemplateContext',

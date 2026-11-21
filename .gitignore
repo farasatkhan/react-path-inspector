@@ -1,3 +1,5 @@
 node_modules
 dist
 .agents/
+.next-dev.log
+tests/harness/out/

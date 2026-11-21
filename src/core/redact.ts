@@ -14,13 +14,23 @@ export const BUILT_IN_REDACT_KEYS: readonly string[] = SECRET_KEY_ENTRIES;
 
 const PERSONAL_KEY_ENTRIES = ['email', 'phone', 'address', 'ssn'] as const;
 
-const SECRET_VALUE_PREFIXES = ['sk-', 'ghp_', 'AKIA'] as const;
+const SECRET_VALUE_PREFIXES = [
+  'sk-',
+  'ghp_',
+  'gho_',
+  'ghu_',
+  'ghs_',
+  'ghr_',
+  'github_pat_',
+  'AKIA',
+] as const;
 
 const JWT_PATTERN = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/;
 const BEARER_PATTERN = /^Bearer\s+\S+/i;
 const HEX_PATTERN = /^[0-9a-f]{32,}$/i;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]{32,}={0,2}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SSN_PATTERN = /^\d{3}-\d{2}-\d{4}$/;
 
 export const REDACTED_KEY_MATCH = '[redacted: key match]';
 
@@ -72,6 +82,9 @@ export function detectSecretValue(value: string, options: RedactOptions = {}): s
   }
   if (options.redactPersonalData && EMAIL_PATTERN.test(trimmed)) {
     return '[redacted: looks like an email]';
+  }
+  if (options.redactPersonalData && SSN_PATTERN.test(trimmed)) {
+    return '[redacted: looks like an SSN]';
   }
   return null;
 }
