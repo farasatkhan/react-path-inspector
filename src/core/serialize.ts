@@ -53,8 +53,6 @@ export function serializeJsonSafe(
   const objectValue = value as object;
   if (seen.has(objectValue)) return '[Circular]';
 
-  // Thenable check first — see serializeValue: Next.js params proxies warn
-  // on any property access other than then/catch/finally.
   if (isThenable(objectValue)) return 'Promise';
 
   if (isReactElement(objectValue)) return `<${reactElementName(objectValue)} />`;
@@ -182,9 +180,6 @@ export function serializeValue(
   const objectValue = value as object;
   if (seen.has(objectValue)) return '[Circular]';
 
-  // Promises come first: Next.js wraps route params and searchParams in
-  // proxies that log a sync-dynamic-apis warning on ANY other property
-  // access, so nothing may touch them before the thenable check.
   if (isThenable(objectValue)) return 'Promise';
 
   if (isReactElement(objectValue)) {

@@ -42,11 +42,6 @@ function decodeChunkSourcePath(path: string): string | null {
     return null;
   }
   const tokens = name.split('_');
-  // Turbopack appends one or two hash tokens after the source extension:
-  //   src_app_signup_signup-form_tsx_1120-xrb0pjfa
-  //   src_app_products_[slug]_add-to-cart-form_tsx_1pwgivrq_ibp8
-  // Find the last token that is exactly a source extension; the token before
-  // it is the file name without its dot.
   let extIndex = -1;
   for (let i = tokens.length - 1; i >= 1; i--) {
     if (CHUNK_SOURCE_EXTENSIONS.has(tokens[i])) {
@@ -66,19 +61,12 @@ function decodeChunkSourcePath(path: string): string | null {
 const TURBOPACK_PROJECT_CHUNK = /\/_next\/static\/chunks\/(?:src|app)_/;
 
 function isUserChunkUrl(path: string): boolean {
-  // Hash-only project bundles keep the project path prefix:
-  //   src_app_errors_1x4vcylqh2hd2._.js
-  // Library and runtime chunks (react-dom, packages) start with a hash or
-  // node_modules and must not hijack the walk to user code.
   return TURBOPACK_PROJECT_CHUNK.test(path);
 }
 
 function frameKind(frame: StackFrame): FrameKind {
   if (pathIsDirectlyUsable(frame.path)) return 'direct';
   if (decodeChunkSourcePath(frame.path)) return 'user-chunk';
-  // Hash-only chunk names (client page bundles such as
-  // src_app_errors_1x4vcylqh2hd2) decode to no path, but their source map
-  // still resolves the original file, so keep them as user chunks.
   if (isUserChunkUrl(frame.path)) return 'user-chunk';
   if (frame.url.toLowerCase().startsWith(SSR_FRAME_PREFIX)) return 'ssr';
   return 'other';
