@@ -1,14 +1,3 @@
-// React Path Inspector probe harness.
-// Runs IN THE PAGE via `agent-browser eval --stdin`. Reads the target from
-// window.__RPICONFIG = { selector: "css selector" }, then exercises the
-// extension's real pipeline:
-//   1. synthetic contextmenu  -> sets lastContextTarget (same code path as a
-//      real right-click, minus the Chrome menu)
-//   2. open-path-bar          -> filtered chip path
-//   3. props-preview          -> serialized props for the last chips
-//   4. highlight              -> noDom / portal / rect flags per chip
-//   5. inspect-start + mousemove -> resolved source file:line:col for the
-//      hovered element and its owner component
 (async () => {
   const config = window.__RPICONFIG;
   if (!config || !config.selector) {
@@ -58,19 +47,16 @@
       setTimeout(() => resolve({ timeout: true }), 5000);
     });
 
-  // 1. context target (right-click equivalent)
   el.dispatchEvent(
     new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
   );
 
-  // 2. path chips
   const opened = await request("open-path-bar", { options: OPTIONS });
   if (!opened.ok) {
     return JSON.stringify({ error: "open-path-bar failed", reason: opened.reason });
   }
   const chips = opened.chips.map((c) => (c.server ? c.name + " (server)" : c.name));
 
-  // 3. props for the nearest four chips
   const props = {};
   for (let i = Math.max(0, chips.length - 4); i < chips.length; i++) {
     const res = await request("props-preview", { index: i, options: OPTIONS });
@@ -79,7 +65,6 @@
       : "ERR:" + (res.reason ?? "unknown");
   }
 
-  // 4. highlight flags per chip
   const highlight = {};
   for (let i = 0; i < chips.length; i++) {
     const res = await request("highlight", { index: i });
@@ -92,9 +77,6 @@
       : "ERR:" + res.reason;
   }
 
-  // 5. hover sources. The extension resolves sources asynchronously (SSR
-  // endpoint / chunk source maps) and RE-EMITS inspect-hover afterwards, so
-  // collect every emit for a while and keep the last one.
   const rect = el.getBoundingClientRect();
   const hoverData = await new Promise((resolve) => {
     let last = { timeout: true };
@@ -109,9 +91,6 @@
       const data = event.data;
       if (data && data.source === SRC && data.type === "inspect-hover") {
         last = data;
-        // Keep listening: the extension first emits a chunk-decode fallback
-        // (line 1), then RE-EMITS with the source-map-resolved position.
-        // Finish early only when an absolute path shows up.
         const sources = [data.element, data.owner]
           .filter(Boolean)
           .map((t) => t.source);
@@ -135,7 +114,6 @@
         }),
       );
     }, 150);
-    // keep re-hovering: later emits carry resolved sources
     const rehover = setInterval(() => {
       el.dispatchEvent(
         new MouseEvent("mousemove", {

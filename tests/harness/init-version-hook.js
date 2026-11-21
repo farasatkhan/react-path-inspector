@@ -1,5 +1,3 @@
-// Isolation test: install ONLY the extension's version hook (same shape as
-// src/main-world/version.ts) and see if React streaming stalls.
 (() => {
   const renderers = new Map();
   let uid = 0;

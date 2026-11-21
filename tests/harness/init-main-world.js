@@ -1,5 +1,3 @@
-// Isolation test 2: main-world behaviors from react-path-inspector besides
-// the version hook: history wrappers + message listener + contextmenu capture.
 (() => {
   const notify = () => window.postMessage({ source: "react-path-copier", type: "route-changed" }, window.location.origin);
   const originalPushState = history.pushState.bind(history);
@@ -24,7 +22,6 @@
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.source !== "react-path-copier") return;
-    // simulate main-world handling of requests (echo back a minimal result)
     if (data.type === "copy-path" || data.type === "open-path-bar") {
       window.postMessage({ source: "react-path-copier", type: data.type + "-result", requestId: data.requestId, ok: false, reason: "isolated-test" }, window.location.origin);
     }

@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Probe every playground page through the extension harness.
-# Usage: bash tests/harness/run-probes.sh  (from D:/_code/react-path-inspector)
 set -u
 SESSION="rpi-ea401c00a541"
 BASE="http://localhost:3000"
 OUT_DIR="tests/harness/out"
 mkdir -p "$OUT_DIR"
 
-# name|url|selector (selector is plain CSS, base64-encoded per run)
 CASES=(
   'home|/|a[href="/signup"]'
   'signup-combobox|/signup|input[placeholder="Search countries…"]'
@@ -41,7 +38,6 @@ for case in "${CASES[@]}"; do
   echo "=== $name $url ($sel)"
   agent-browser --session "$SESSION" open "$BASE$url" > /dev/null 2>&1
 
-  # wait until the selector exists (dev server compiles routes lazily)
   for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     found=$(agent-browser --session "$SESSION" eval "!!document.querySelector(decodeURIComponent('$sel_enc'))" 2>/dev/null)
     if [ "$found" = "true" ]; then break; fi
@@ -52,7 +48,7 @@ for case in "${CASES[@]}"; do
     continue
   fi
 
-  sleep 1.5 # settle hydration
+  sleep 1.5
   agent-browser --session "$SESSION" eval "window.__RPICONFIG = { selector: decodeURIComponent('$sel_enc') }; 'ok'" > /dev/null 2>&1
   cat tests/harness/page-probe.js | agent-browser --session "$SESSION" eval --stdin > "$OUT_DIR/$name.json" 2>&1
   echo "    -> $OUT_DIR/$name.json"
