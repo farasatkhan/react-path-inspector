@@ -1,5 +1,6 @@
-import { MESSAGE_SOURCE, type CopyPathToMain, type DebugFiberInfoToMain, type HighlightToMain, type InspectStartToMain, type InspectStopToMain, type OpenPathBarToMain, type PropsPreviewToMain, type CopyNodeToMain, type CopyPropsToMain, type WindowResult } from '../definitions';
+import { MESSAGE_SOURCE, type CopyPathToMain, type DebugFiberInfoToMain, type HighlightToMain, type InspectStartToMain, type InspectStopToMain, type OpenPathBarToMain, type PropsPreviewToMain, type CopyNodeToMain, type CopyPropsToMain, type ResolveProjectRootToMain, type WindowResult } from '../definitions';
 import { startInspect, stopInspect } from './inspect';
+import { handleResolveProjectRoot } from './project-root';
 import {
   handleCopyPath,
   handleCopyNode,
@@ -60,6 +61,9 @@ window.addEventListener('message', (event) => {
       return;
     case 'copy-props':
       post(handleCopyProps(data as unknown as CopyPropsToMain));
+      return;
+    case 'resolve-project-root':
+      void handleResolveProjectRoot(data as unknown as ResolveProjectRootToMain).then(post);
       return;
     case 'inspect-start':
       startInspect((data as unknown as InspectStartToMain).mode);

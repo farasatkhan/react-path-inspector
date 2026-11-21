@@ -1,4 +1,4 @@
-import { loadSettings } from '../shared/settings';
+import { loadSettings, saveSettings } from '../shared/settings';
 import { normalizeSiteKey } from '../shared/origins';
 import { buildEditorUrl, editorDisplayName, isAbsoluteSourcePath, joinRootPath, matchesShortcut, prettyShortcut, resolveProjectRoot } from '../utils';
 import { MESSAGE_SOURCE, type InspectMode, type InspectOverlayData, type Settings } from '../definitions';
@@ -104,6 +104,14 @@ async function openViaDevServer(sourceInfo: { fileName: string; line: number; co
   }
 }
 
+async function discoverProjectRoot(relPath: string): Promise<boolean> {
+  const result = await requestMainWorld('resolve-project-root', { relPath });
+  if (result.type !== 'resolve-project-root-result' || !result.ok) return false;
+  const settings = await loadSettings();
+  await saveSettings({ projectRoots: { ...settings.projectRoots, [location.origin]: result.root } });
+  return true;
+}
+
 async function handleInspectClick(mode: InspectMode, hasFiber: boolean, sourceInfo: { fileName: string; line: number; column: number } | null): Promise<void> {
   if (mode === 'select') {
     stopInspect();
@@ -119,7 +127,15 @@ async function handleInspectClick(mode: InspectMode, hasFiber: boolean, sourceIn
 
   const origin = location.origin;
   const absolute = isAbsoluteSourcePath(sourceInfo.fileName);
-  const root = resolveProjectRoot(origin, settings.projectRoots, settings.defaultProjectRoot);
+  let root = resolveProjectRoot(origin, settings.projectRoots, settings.defaultProjectRoot);
+  let detectedRoot = false;
+  if (!absolute && !root) {
+    detectedRoot = await discoverProjectRoot(sourceInfo.fileName);
+    if (detectedRoot) {
+      cachedSettings = await loadSettings();
+      root = resolveProjectRoot(origin, cachedSettings.projectRoots, cachedSettings.defaultProjectRoot);
+    }
+  }
   if (!absolute && !root) {
     const openedViaServer = await openViaDevServer(sourceInfo);
     if (openedViaServer) {
@@ -132,13 +148,15 @@ async function handleInspectClick(mode: InspectMode, hasFiber: boolean, sourceIn
     return;
   }
 
-  const opened = openInEditor(settings, origin, sourceInfo.fileName, sourceInfo.line, sourceInfo.column);
+  const refreshed = cachedSettings ?? settings;
+  const opened = openInEditor(refreshed, origin, sourceInfo.fileName, sourceInfo.line, sourceInfo.column);
   if (!opened) {
     showToast('Could not build the editor URL from this source path.', 'error', resolvedTheme());
     return;
   }
   const openedAt = sourceInfo.line > 1 ? `:${sourceInfo.line}` : '';
-  showToast(`Opened ${displayFileName(sourceInfo.fileName)}${openedAt} in ${editorDisplayName(settings.editor)}`, 'success', resolvedTheme());
+  const detectedNote = detectedRoot ? ' (auto-detected project root)' : '';
+  showToast(`Opened ${displayFileName(sourceInfo.fileName)}${openedAt} in ${editorDisplayName(refreshed.editor)}${detectedNote}`, 'success', resolvedTheme());
   stopInspect();
 }
 

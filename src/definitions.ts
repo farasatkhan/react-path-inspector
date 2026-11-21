@@ -259,6 +259,29 @@ export type CopyPropsResult =
       reason: 'no-session' | 'bad-index' | 'no-props';
     };
 
+export interface ResolveProjectRootToMain {
+  source: typeof MESSAGE_SOURCE;
+  type: 'resolve-project-root';
+  requestId: number;
+  relPath: string;
+}
+
+export type ResolveProjectRootResult =
+  | {
+      source: typeof MESSAGE_SOURCE;
+      type: 'resolve-project-root-result';
+      requestId: number;
+      ok: true;
+      root: string;
+    }
+  | {
+      source: typeof MESSAGE_SOURCE;
+      type: 'resolve-project-root-result';
+      requestId: number;
+      ok: false;
+      reason: 'no-absolute-source';
+    };
+
 export interface RouteChangedFromMain {
   source: typeof MESSAGE_SOURCE;
   type: 'route-changed';
@@ -307,7 +330,7 @@ export interface InspectStoppedFromMain {
   type: 'inspect-stopped';
 }
 
-export type WindowRequest = CopyPathToMain | DebugFiberInfoToMain | OpenPathBarToMain | HighlightToMain | PropsPreviewToMain | CopyNodeToMain | CopyPropsToMain | InspectStartToMain | InspectStopToMain;
+export type WindowRequest = CopyPathToMain | DebugFiberInfoToMain | OpenPathBarToMain | HighlightToMain | PropsPreviewToMain | CopyNodeToMain | CopyPropsToMain | ResolveProjectRootToMain | InspectStartToMain | InspectStopToMain;
 export type WindowResult =
   | CopyPathResult
   | DebugFiberInfoResult
@@ -315,7 +338,8 @@ export type WindowResult =
   | HighlightResult
   | PropsPreviewResult
   | CopyNodeResult
-  | CopyPropsResult;
+  | CopyPropsResult
+  | ResolveProjectRootResult;
 export type WindowMessage = WindowRequest | WindowResult | RouteChangedFromMain | InspectHoverFromMain | InspectClickFromMain | InspectStoppedFromMain;
 
 export type ToastKind = 'success' | 'error' | 'info';
