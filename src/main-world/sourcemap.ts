@@ -128,9 +128,6 @@ function normalizeSourcePath(source: string, sourceRoot: string, mapUrl: string,
     return candidate;
   }
 
-  // Relative sources resolve against the map's location; inline maps travel
-  // in data:/blob: URLs, which are not valid bases, so fall back to the
-  // bundle itself (Vite emits bare filenames for its inline dev maps).
   for (const base of [mapUrl, bundleUrl]) {
     try {
       const resolved = new URL(candidate, base);

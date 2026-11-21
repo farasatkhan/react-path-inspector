@@ -168,9 +168,6 @@ function sourceFromFrame(frame: StackFrame): { source: InspectSource | null; res
   }
   if (pathIsDirectlyUsable(frame.path)) {
     const source = { fileName: frame.path, line: frame.line, column: frame.column };
-    // The dev server may serve a sourcemap for this path with exact original
-    // coordinates; let that attempt finish before treating the raw frame
-    // position as final, otherwise the coarse result sticks in the cache.
     return { source, resolved: isSourceMapReady(frame.url) };
   }
   const decoded = decodeChunkSourcePath(frame.path);
